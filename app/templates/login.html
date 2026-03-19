@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>登录 - 定时任务管理台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="login-shell">
+    <section class="login-card">
+      <p class="eyebrow">安全登录</p>
+      <h1>进入定时任务管理台</h1>
+      <p class="subtitle">请先登录，未登录状态下无法访问页面和接口。</p>
+      <form id="loginForm" class="login-form">
+        <label>用户名<input name="username" autocomplete="username" required></label>
+        <label>密码<input name="password" type="password" autocomplete="current-password" required></label>
+        <button type="submit" class="primary">登录</button>
+      </form>
+      <p id="loginStatus" class="muted"></p>
+    </section>
+  </main>
+  <script src="/static/login.js"></script>
+</body>
+</html>

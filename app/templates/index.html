@@ -1,0 +1,145 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>定时任务管理台</title>
+  <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+  <main class="shell">
+    <header class="hero">
+      <div>
+        <p class="eyebrow">定时任务管理台</p>
+        <h1>巡检与自动恢复管理台</h1>
+        <p class="subtitle">在网页里统一管理配置、定时执行、运行结果和原始日志。</p>
+      </div>
+      <div class="hero-actions">
+        <button id="refreshAll" class="primary">刷新全部</button>
+        <button id="logoutButton" class="ghost-button">退出登录</button>
+      </div>
+    </header>
+
+    <section class="tabs panel">
+      <div class="tab-bar">
+        <button class="tab-button active" data-tab="overview">总览</button>
+        <button class="tab-button" data-tab="jobs">任务执行</button>
+        <button class="tab-button" data-tab="history">运行历史</button>
+        <button class="tab-button" data-tab="logs">日志查看</button>
+        <button class="tab-button" data-tab="config">系统配置</button>
+      </div>
+    </section>
+
+    <section class="tab-panel active" data-panel="overview">
+      <section class="grid grid-4" id="dashboardCards"></section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>概览摘要</h2>
+        </div>
+        <div id="overviewHighlights" class="highlight-grid"></div>
+      </section>
+      <section class="panel">
+        <div class="panel-head">
+          <h2>最近一次结果</h2>
+        </div>
+        <div id="runSummary" class="summary-wrap"></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="jobs">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>手动执行</h2>
+        </div>
+        <div class="actions">
+          <button data-job="check">执行巡检</button>
+          <button data-job="enable">执行恢复</button>
+          <button data-job="check_and_enable" class="primary">执行巡检并恢复</button>
+        </div>
+        <p id="jobStatus" class="muted"></p>
+      </section>
+
+      <section class="panel">
+        <div class="panel-head">
+          <h2>当前结果</h2>
+        </div>
+        <div id="jobRunSummary" class="summary-wrap"></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="history">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>运行历史</h2>
+          <div class="history-toolbar">
+            <div class="filter-chip">
+              <span class="filter-label">任务类型</span>
+              <select id="historyTypeFilter">
+                <option value="all">全部任务</option>
+                <option value="check">仅巡检</option>
+                <option value="enable">仅恢复</option>
+                <option value="check_and_enable">仅巡检并恢复</option>
+              </select>
+            </div>
+            <div class="filter-chip">
+              <span class="filter-label">执行状态</span>
+              <select id="historyStatusFilter">
+                <option value="all">全部状态</option>
+                <option value="success">成功</option>
+                <option value="partial">部分成功</option>
+                <option value="failed">失败</option>
+                <option value="skipped">已跳过</option>
+              </select>
+            </div>
+            <div class="filter-chip">
+              <span class="filter-label">执行日期</span>
+              <input id="historyDateFilter" type="date">
+            </div>
+            <button id="historyResetFilters" class="ghost-button">清空筛选</button>
+          </div>
+        </div>
+        <div id="runList" class="run-list"></div>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="logs">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>原始日志</h2>
+          <div class="panel-actions">
+            <label class="toggle compact"><input id="autoScrollLogs" type="checkbox" checked>自动滚动到底部</label>
+            <button id="copyLogs">复制日志</button>
+          </div>
+        </div>
+        <pre id="logViewer" class="log-box"></pre>
+      </section>
+    </section>
+
+    <section class="tab-panel" data-panel="config">
+      <section class="panel">
+        <div class="panel-head">
+          <h2>系统配置</h2>
+          <div class="panel-actions">
+            <button id="validateConfig">校验配置</button>
+            <button id="saveConfig" class="primary">保存配置</button>
+          </div>
+        </div>
+        <form id="configForm" class="form-grid">
+          <label>请求超时（秒）<input name="request_timeout" type="number" min="1" required></label>
+          <label>单次最大恢复数<input name="max_enable_per_run" type="number" min="1" required></label>
+          <label>定时间隔（分钟）<input name="schedule_interval_minutes" type="number" min="1" required></label>
+          <label>日志保留天数<input name="log_retention_days" type="number" min="1" required></label>
+          <label>历史保留天数<input name="run_retention_days" type="number" min="1" required></label>
+          <label>锁超时（分钟）<input name="lock_ttl_minutes" type="number" min="1" required></label>
+          <label>禁止恢复渠道 ID<input name="deny_channel_ids" placeholder="例如 1,2,3"></label>
+          <label class="toggle"><input name="dry_run" type="checkbox">仅演练，不实际恢复</label>
+          <label class="toggle"><input name="schedule_enabled" type="checkbox">启用定时任务</label>
+          <label class="toggle"><input name="auto_reenable_enabled" type="checkbox">巡检后自动恢复</label>
+        </form>
+        <p id="configStatus" class="muted"></p>
+      </section>
+    </section>
+  </main>
+  <script src="/static/app.js"></script>
+</body>
+</html>

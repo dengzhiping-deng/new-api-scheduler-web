@@ -1,0 +1,17 @@
+{
+  "new_api_base_url": "https://niu.chomoo.cc",
+  "new_api_username": "admin-long",
+  "new_api_password": "",
+  "request_timeout": 15,
+  "max_enable_per_run": 10,
+  "dry_run": true,
+  "deny_channel_ids": [],
+  "schedule_enabled": true,
+  "auto_reenable_enabled": true,
+  "schedule_interval_minutes": 10,
+  "log_page_size": 200,
+  "log_retention_days": 3,
+  "run_retention_days": 3,
+  "run_history_limit": 200,
+  "lock_ttl_minutes": 30
+}

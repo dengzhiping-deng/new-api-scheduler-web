@@ -1,0 +1,33 @@
+[project]
+name = "new-api-scheduler-web"
+version = "0.1.0"
+description = "Web control plane for New API auto check and auto enable tasks."
+requires-python = ">=3.11"
+dependencies = [
+    "apscheduler>=3.10,<4.0",
+    "fastapi>=0.115,<1.0",
+    "itsdangerous>=2.2,<3.0",
+    "jinja2>=3.1,<4.0",
+    "pydantic>=2.8,<3.0",
+    "requests>=2.32,<3.0",
+    "uvicorn[standard]>=0.30,<1.0",
+]
+
+[project.optional-dependencies]
+dev = [
+    "httpx>=0.28,<1.0",
+    "pytest>=8.3,<9.0",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools]
+package-dir = {"" = "."}
+
+[tool.setuptools.packages.find]
+where = ["."]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
