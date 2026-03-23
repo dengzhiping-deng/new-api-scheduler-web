@@ -3,7 +3,7 @@ from datetime import UTC, datetime, timedelta
 from pathlib import Path
 
 from app.config_store import AuthStore, ConfigStore
-from app.core.automation import classify_codex_usage
+from app.core.automation import AutomationRunner, classify_codex_usage
 from app.models import AppConfig, ConfigUpdate, JobRun, JobSummary, JobType, RunStatus
 from app.services.job_runner import JobService
 from app.storage import RunStore
@@ -56,6 +56,7 @@ def test_config_store_preserves_password(tmp_path: Path):
             max_enable_per_run=10,
             dry_run=True,
             deny_channel_ids=[],
+            skip_channel_priorities=[-999, -998],
             schedule_enabled=True,
             auto_reenable_enabled=True,
             schedule_interval_minutes=10,
@@ -68,6 +69,45 @@ def test_config_store_preserves_password(tmp_path: Path):
     assert updated.new_api_username == "u"
     assert updated.log_page_size == 123
     assert updated.run_history_limit == 456
+
+
+def test_auto_disabled_filter_skips_configured_priorities(tmp_path: Path):
+    runner = AutomationRunner(config=AppConfig(skip_channel_priorities=[-999, -998]), log_path=tmp_path / "job.log")
+    channels = [
+        {"id": 1, "status": 3, "priority": 0},
+        {"id": 2, "status": 3, "priority": -999},
+        {"id": 3, "status": 3, "priority": -998},
+        {"id": 4, "status": 1, "priority": 0},
+    ]
+    filtered = runner._get_auto_disabled_channels(channels)
+    assert [channel["id"] for channel in filtered] == [1]
+
+
+def test_auto_disabled_split_reports_raw_and_filtered_counts(tmp_path: Path):
+    runner = AutomationRunner(config=AppConfig(skip_channel_priorities=[-999, -998]), log_path=tmp_path / "job.log")
+    channels = [
+        {"id": 1, "status": 3, "priority": 0},
+        {"id": 2, "status": 3, "priority": -999},
+        {"id": 3, "status": 3, "priority": -998},
+        {"id": 4, "status": 1, "priority": 0},
+    ]
+    raw, filtered = runner._split_auto_disabled_channels(channels)
+    assert [channel["id"] for channel in raw] == [1, 2, 3]
+    assert [channel["id"] for channel in filtered] == [1]
+
+
+def test_build_channel_lists_keeps_priority_snapshots(tmp_path: Path):
+    runner = AutomationRunner(config=AppConfig(skip_channel_priorities=[-999]), log_path=tmp_path / "job.log")
+    raw = [
+        {"id": 1, "name": "a", "type": 57, "status": 3, "priority": 0},
+        {"id": 2, "name": "b", "type": 57, "status": 3, "priority": -999},
+    ]
+    filtered = [raw[0]]
+    channel_lists = runner._build_channel_lists(raw, filtered)
+    assert channel_lists["auto_disabled_channels"][0]["channel_id"] == 1
+    assert channel_lists["auto_disabled_channels"][1]["priority"] == -999
+    assert [item["channel_id"] for item in channel_lists["included_channels"]] == [1]
+    assert [item["channel_id"] for item in channel_lists["skipped_priority_channels"]] == [2]
 
 
 def test_auth_store_verifies_password(tmp_path: Path):

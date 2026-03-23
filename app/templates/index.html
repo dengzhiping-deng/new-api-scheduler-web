@@ -132,6 +132,7 @@
           <label>历史保留天数<input name="run_retention_days" type="number" min="1" required></label>
           <label>锁超时（分钟）<input name="lock_ttl_minutes" type="number" min="1" required></label>
           <label>禁止恢复渠道 ID<input name="deny_channel_ids" placeholder="例如 1,2,3"></label>
+          <label>巡检跳过优先级<input name="skip_channel_priorities" placeholder="例如 -999,-998"></label>
           <label class="toggle"><input name="dry_run" type="checkbox">仅演练，不实际恢复</label>
           <label class="toggle"><input name="schedule_enabled" type="checkbox">启用定时任务</label>
           <label class="toggle"><input name="auto_reenable_enabled" type="checkbox">巡检后自动恢复</label>

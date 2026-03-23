@@ -35,15 +35,25 @@ class ConfigStore:
             new_api_base_url=current.new_api_base_url,
             new_api_username=current.new_api_username,
             new_api_password=current.new_api_password,
-            log_page_size=payload.log_page_size if payload.log_page_size is not None else current.log_page_size,
-            run_history_limit=payload.run_history_limit if payload.run_history_limit is not None else current.run_history_limit,
-            **payload.model_dump(exclude={"log_page_size", "run_history_limit"}),
+            log_page_size=current.log_page_size,
+            run_history_limit=current.run_history_limit,
+            **payload.model_dump(),
         )
         return self.save(merged)
 
     @staticmethod
     def to_response(config: AppConfig) -> ConfigResponse:
-        return ConfigResponse(**config.model_dump(exclude={"new_api_base_url", "new_api_username", "new_api_password"}))
+        return ConfigResponse(
+            **config.model_dump(
+                exclude={
+                    "new_api_base_url",
+                    "new_api_username",
+                    "new_api_password",
+                    "log_page_size",
+                    "run_history_limit",
+                }
+            )
+        )
 
     def _load_legacy_or_default(self) -> AppConfig:
         legacy_path = self.path.parent.parent.parent / "脚本中心" / "配置文件" / "new-api-auto-enable.env"

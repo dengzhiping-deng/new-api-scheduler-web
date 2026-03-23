@@ -29,6 +29,7 @@ class AppConfig(BaseModel):
     max_enable_per_run: int = 10
     dry_run: bool = True
     deny_channel_ids: list[int] = Field(default_factory=list)
+    skip_channel_priorities: list[int] = Field(default_factory=lambda: [-999, -998])
     schedule_enabled: bool = True
     auto_reenable_enabled: bool = True
     schedule_interval_minutes: int = 10
@@ -65,13 +66,12 @@ class ConfigResponse(BaseModel):
     max_enable_per_run: int
     dry_run: bool
     deny_channel_ids: list[int]
+    skip_channel_priorities: list[int]
     schedule_enabled: bool
     auto_reenable_enabled: bool
     schedule_interval_minutes: int
-    log_page_size: int
     log_retention_days: int
     run_retention_days: int
-    run_history_limit: int
     lock_ttl_minutes: int
 
 
@@ -80,13 +80,12 @@ class ConfigUpdate(BaseModel):
     max_enable_per_run: int
     dry_run: bool
     deny_channel_ids: list[int] = Field(default_factory=list)
+    skip_channel_priorities: list[int] = Field(default_factory=list)
     schedule_enabled: bool
     auto_reenable_enabled: bool
     schedule_interval_minutes: int
-    log_page_size: int | None = None
     log_retention_days: int
     run_retention_days: int
-    run_history_limit: int | None = None
     lock_ttl_minutes: int
 
 

@@ -6,6 +6,7 @@
   "max_enable_per_run": 10,
   "dry_run": true,
   "deny_channel_ids": [],
+  "skip_channel_priorities": [-999, -998],
   "schedule_enabled": true,
   "auto_reenable_enabled": true,
   "schedule_interval_minutes": 10,

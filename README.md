@@ -113,6 +113,7 @@ APP_DATA_DIR=/app/data uvicorn app.main:app --host 0.0.0.0 --port 8000
 | `max_enable_per_run` | `int` | `10` | 单次最多恢复数（>0） |
 | `dry_run` | `bool` | `true` | 演练模式，不实际恢复 |
 | `deny_channel_ids` | `list[int]` | `[]` | 禁止恢复的渠道 ID |
+| `skip_channel_priorities` | `list[int]` | `[-999, -998]` | 巡检与恢复时跳过的渠道优先级 |
 | `schedule_enabled` | `bool` | `true` | 是否启用定时任务 |
 | `auto_reenable_enabled` | `bool` | `true` | 定时任务是否自动进入恢复阶段 |
 | `schedule_interval_minutes` | `int` | `10` | 定时间隔（分钟，>0） |
@@ -126,6 +127,7 @@ APP_DATA_DIR=/app/data uvicorn app.main:app --host 0.0.0.0 --port 8000
 
 - 页面配置接口不会返回 `new_api_base_url/new_api_username/new_api_password`。
 - 更新页面配置时，这 3 个敏感字段会按当前值保留，不会被覆盖。
+- 巡检和恢复都会先筛选 `status == 3` 的自动禁用渠道，再排除 `skip_channel_priorities` 中配置的优先级。
 
 ### 认证配置（`auth.json`）
 

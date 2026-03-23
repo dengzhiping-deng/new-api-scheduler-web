@@ -125,7 +125,7 @@ class JobService:
 
     def _execute(self, runner: AutomationRunner, job_type: JobType):
         if job_type == JobType.CHECK:
-            summary, decisions = runner.run_check()
+            summary, decisions, stats = runner.run_check()
             return summary, decisions, {
                 "check_executed": True,
                 "enable_executed": False,
@@ -133,9 +133,11 @@ class JobService:
                 "enable_exit_code": None,
                 "check_summary": summary.model_dump(mode="json"),
                 "enable_summary": None,
+                "check_stats": stats,
+                "enable_stats": None,
             }
         if job_type == JobType.ENABLE:
-            summary, decisions = runner.run_enable()
+            summary, decisions, stats = runner.run_enable()
             return summary, decisions, {
                 "check_executed": False,
                 "enable_executed": True,
@@ -143,9 +145,11 @@ class JobService:
                 "enable_exit_code": 0,
                 "check_summary": None,
                 "enable_summary": summary.model_dump(mode="json"),
+                "check_stats": None,
+                "enable_stats": stats,
             }
 
-        check_summary, check_decisions = runner.run_check()
+        check_summary, check_decisions, check_stats = runner.run_check()
         should_enable = (
             check_summary.suggest_reenable > 0
             or check_summary.weekly_window_grace > 0
@@ -159,9 +163,11 @@ class JobService:
                 "enable_exit_code": None,
                 "check_summary": check_summary.model_dump(mode="json"),
                 "enable_summary": None,
+                "check_stats": check_stats,
+                "enable_stats": None,
             }
 
-        enable_summary, enable_decisions = runner.run_enable()
+        enable_summary, enable_decisions, enable_stats = runner.run_enable()
         merged = JobSummary(
             total=check_summary.total,
             codex=check_summary.codex,
@@ -198,6 +204,8 @@ class JobService:
             "enable_exit_code": 0,
             "check_summary": check_summary.model_dump(mode="json"),
             "enable_summary": enable_summary.model_dump(mode="json"),
+            "check_stats": check_stats,
+            "enable_stats": enable_stats,
         }
 
     def _derive_status(self, job_type: JobType, summary: JobSummary) -> RunStatus:

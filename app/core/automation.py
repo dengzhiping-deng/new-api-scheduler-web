@@ -207,19 +207,73 @@ class AutomationRunner:
         self.logger = setup_logger(log_path, f"job.{log_path.stem}")
         self.client = NewAPIClient(config, self.logger)
 
+    def _split_auto_disabled_channels(self, channels: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+        auto_disabled = [channel for channel in channels if int(channel.get("status", 0)) == 3]
+        skipped_priorities = set(self.config.skip_channel_priorities)
+        filtered = [
+            channel
+            for channel in auto_disabled
+            if int(channel.get("priority", 0)) not in skipped_priorities
+        ]
+        return auto_disabled, filtered
+
+    @staticmethod
+    def _channel_snapshot(channel: dict[str, Any]) -> dict[str, Any]:
+        return {
+            "channel_id": int(channel.get("id", 0)),
+            "channel_name": channel.get("name", ""),
+            "channel_type": int(channel.get("type", 0)) if channel.get("type") is not None else None,
+            "status": int(channel.get("status", 0)) if channel.get("status") is not None else None,
+            "priority": int(channel.get("priority", 0)) if channel.get("priority") is not None else None,
+        }
+
+    def _build_channel_lists(self, raw_auto_disabled: list[dict[str, Any]], auto_disabled: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+        included_ids = {int(channel.get("id", 0)) for channel in auto_disabled}
+        skipped = [channel for channel in raw_auto_disabled if int(channel.get("id", 0)) not in included_ids]
+        return {
+            "auto_disabled_channels": [self._channel_snapshot(channel) for channel in raw_auto_disabled],
+            "included_channels": [self._channel_snapshot(channel) for channel in auto_disabled],
+            "skipped_priority_channels": [self._channel_snapshot(channel) for channel in skipped],
+        }
+
+    def _log_channel_list(self, label: str, channels: list[dict[str, Any]]) -> None:
+        rendered = ", ".join(
+            f"id={item['channel_id']} priority={item['priority']} name={item['channel_name']}"
+            for item in channels
+        )
+        self.logger.info("%s count=%s%s", label, len(channels), f" :: {rendered}" if rendered else "")
+
     def validate_connection(self) -> None:
         self.client.validate()
         self.client.login()
 
-    def run_check(self) -> tuple[JobSummary, list[ChannelDecision]]:
+    def _get_auto_disabled_channels(self, channels: list[dict[str, Any]]) -> list[dict[str, Any]]:
+        _, filtered = self._split_auto_disabled_channels(channels)
+        return filtered
+
+    def run_check(self) -> tuple[JobSummary, list[ChannelDecision], dict[str, Any]]:
         self.client.validate()
         self.client.login()
         channels = self.client.get_channels()
-        auto_disabled = [channel for channel in channels if int(channel.get("status", 0)) == 3]
+        raw_auto_disabled, auto_disabled = self._split_auto_disabled_channels(channels)
 
         summary = JobSummary(total=len(auto_disabled))
         decisions: list[ChannelDecision] = []
-        self.logger.info("found auto-disabled channels=%s", len(auto_disabled))
+        stats = {
+            "auto_disabled_total": len(raw_auto_disabled),
+            "included_auto_disabled_total": len(auto_disabled),
+            "skipped_priority_total": len(raw_auto_disabled) - len(auto_disabled),
+        }
+        channel_lists = self._build_channel_lists(raw_auto_disabled, auto_disabled)
+        self.logger.info(
+            "found auto-disabled channels total=%s included=%s skipped_by_priority=%s",
+            stats["auto_disabled_total"],
+            stats["included_auto_disabled_total"],
+            stats["skipped_priority_total"],
+        )
+        self._log_channel_list("auto-disabled raw list", channel_lists["auto_disabled_channels"])
+        self._log_channel_list("auto-disabled included list", channel_lists["included_channels"])
+        self._log_channel_list("auto-disabled skipped-by-priority list", channel_lists["skipped_priority_channels"])
 
         for channel in auto_disabled:
             channel_id = int(channel.get("id", 0))
@@ -288,7 +342,7 @@ class AutomationRunner:
                 self.logger.info("auto-disabled non-codex channel id=%s name=%s", channel_id, channel_name)
 
         self.logger.info("summary=%s", summary.model_dump())
-        return summary, decisions
+        return summary, decisions, {**stats, **channel_lists}
 
     def _decision_from_usage(self, channel: dict[str, Any]) -> tuple[bool, ChannelDecision]:
         channel_id = int(channel.get("id", 0))
@@ -308,17 +362,30 @@ class AutomationRunner:
             ),
         )
 
-    def run_enable(self) -> tuple[JobSummary, list[ChannelDecision]]:
+    def run_enable(self) -> tuple[JobSummary, list[ChannelDecision], dict[str, Any]]:
         self.client.validate()
         self.client.login()
         channels = self.client.get_channels()
-        auto_disabled = [channel for channel in channels if int(channel.get("status", 0)) == 3]
+        raw_auto_disabled, auto_disabled = self._split_auto_disabled_channels(channels)
 
         summary = JobSummary(total=len(auto_disabled), dry_run=self.config.dry_run)
         decisions: list[ChannelDecision] = []
         success_count = 0
-
-        self.logger.info("found auto-disabled channels=%s", len(auto_disabled))
+        stats = {
+            "auto_disabled_total": len(raw_auto_disabled),
+            "included_auto_disabled_total": len(auto_disabled),
+            "skipped_priority_total": len(raw_auto_disabled) - len(auto_disabled),
+        }
+        channel_lists = self._build_channel_lists(raw_auto_disabled, auto_disabled)
+        self.logger.info(
+            "found auto-disabled channels total=%s included=%s skipped_by_priority=%s",
+            stats["auto_disabled_total"],
+            stats["included_auto_disabled_total"],
+            stats["skipped_priority_total"],
+        )
+        self._log_channel_list("auto-disabled raw list", channel_lists["auto_disabled_channels"])
+        self._log_channel_list("auto-disabled included list", channel_lists["included_channels"])
+        self._log_channel_list("auto-disabled skipped-by-priority list", channel_lists["skipped_priority_channels"])
 
         for channel in auto_disabled:
             channel_id = int(channel.get("id", 0))
@@ -437,4 +504,4 @@ class AutomationRunner:
                 self.logger.error("enable error channel_id=%s name=%s error=%s", channel_id, channel_name, exc)
 
         self.logger.info("summary=%s", summary.model_dump())
-        return summary, decisions
+        return summary, decisions, {**stats, **channel_lists}

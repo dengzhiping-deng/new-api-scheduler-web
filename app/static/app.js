@@ -140,13 +140,15 @@ function renderOverviewHighlights(run) {
   }
   const checkSummary = run.metadata?.check_summary || (run.job_type === "check" ? run.summary : null);
   const enableSummary = run.metadata?.enable_summary || (run.job_type === "enable" ? run.summary : null);
+  const checkStats = run.metadata?.check_stats || null;
   const items = [
-    { label: "自动禁渠道", value: checkSummary?.total ?? run.summary.total ?? 0 },
+    { label: "自动禁用总数", value: checkStats?.auto_disabled_total ?? checkSummary?.total ?? run.summary.total ?? 0 },
+    { label: "纳入巡检数", value: checkStats?.included_auto_disabled_total ?? checkSummary?.total ?? run.summary.total ?? 0 },
     { label: "可直接恢复", value: checkSummary?.suggest_reenable ?? 0 },
     { label: "周窗口受限", value: checkSummary?.weekly_window_blocked ?? 0 },
     { label: "短期窗口受限", value: checkSummary?.short_window_blocked ?? 0 },
     { label: "恢复成功", value: enableSummary?.success ?? run.summary.success ?? 0 },
-    { label: "跳过数量", value: enableSummary?.skipped ?? run.summary.skipped ?? 0 },
+    { label: "优先级跳过", value: checkStats?.skipped_priority_total ?? 0 },
   ];
   target.innerHTML = items.map((item) => `
     <article class="mini-card">
@@ -178,6 +180,7 @@ function serializeConfig() {
     max_enable_per_run: Number(form.max_enable_per_run.value),
     dry_run: form.dry_run.checked,
     deny_channel_ids: form.deny_channel_ids.value.split(",").map((item) => item.trim()).filter(Boolean).map(Number),
+    skip_channel_priorities: form.skip_channel_priorities.value.split(",").map((item) => item.trim()).filter(Boolean).map(Number),
     schedule_enabled: form.schedule_enabled.checked,
     auto_reenable_enabled: form.auto_reenable_enabled.checked,
     schedule_interval_minutes: Number(form.schedule_interval_minutes.value),
@@ -189,12 +192,15 @@ function serializeConfig() {
 
 function buildCheckSummary(run) {
   const summary = run.metadata?.check_summary || (run.job_type === "check" ? run.summary : null);
+  const stats = run.metadata?.check_stats || null;
   if (!summary) return "";
   return `
     <article class="summary-card">
       <h3>巡检结果汇总</h3>
       <div class="summary-line">脚本退出码：${run.metadata?.check_exit_code ?? (run.status === "failed" ? 1 : 0)}</div>
-      <div class="summary-line">当前自动禁渠道总数：${summary.total ?? 0}</div>
+      <div class="summary-line">自动禁用总数：${stats?.auto_disabled_total ?? summary.total ?? 0}</div>
+      <div class="summary-line">纳入巡检渠道数：${stats?.included_auto_disabled_total ?? summary.total ?? 0}</div>
+      <div class="summary-line">因跳过优先级排除：${stats?.skipped_priority_total ?? 0}</div>
       <div class="summary-line">可直接恢复渠道数：${summary.suggest_reenable ?? 0}</div>
       <div class="summary-line">周窗口仍受限：${summary.weekly_window_blocked ?? 0}</div>
       <div class="summary-line">周窗口已到可恢复缓冲区：${summary.weekly_window_grace ?? 0}</div>
@@ -222,13 +228,16 @@ function buildEnableSuccessList(run) {
 
 function buildEnableSummary(run) {
   const summary = run.metadata?.enable_summary || (run.job_type === "enable" ? run.summary : null);
+  const stats = run.metadata?.enable_stats || null;
   const enableExecuted = run.metadata?.enable_executed || run.job_type === "enable";
   if (!enableExecuted || !summary) return "";
   return `
     <article class="summary-card">
       <h3>恢复结果汇总</h3>
       <div class="summary-line">脚本退出码：${run.metadata?.enable_exit_code ?? (run.status === "failed" ? 1 : 0)}</div>
-      <div class="summary-line">本轮处理渠道数：${summary.total ?? 0}</div>
+      <div class="summary-line">自动禁用总数：${stats?.auto_disabled_total ?? summary.total ?? 0}</div>
+      <div class="summary-line">纳入恢复判断渠道数：${stats?.included_auto_disabled_total ?? summary.total ?? 0}</div>
+      <div class="summary-line">因跳过优先级排除：${stats?.skipped_priority_total ?? 0}</div>
       <div class="summary-line">成功恢复：${summary.success ?? 0}</div>
       <div class="summary-line">恢复失败：${summary.failed ?? 0}</div>
       <div class="summary-line">跳过数量：${summary.skipped ?? 0}</div>

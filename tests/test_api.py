@@ -12,6 +12,8 @@ def test_config_endpoint_returns_defaults():
     assert payload["schedule_interval_minutes"] == 10
     assert payload["log_retention_days"] == 3
     assert payload["run_retention_days"] == 3
+    assert "log_page_size" not in payload
+    assert "run_history_limit" not in payload
     assert "new_api_base_url" not in payload
     assert "new_api_username" not in payload
 
