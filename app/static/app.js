@@ -158,6 +158,53 @@ function renderOverviewHighlights(run) {
   `).join("");
 }
 
+function getChannelStats(run) {
+  const checkSummary = run?.metadata?.check_summary || (run?.job_type === "check" ? run.summary : null);
+  const enableSummary = run?.metadata?.enable_summary || (run?.job_type === "enable" ? run.summary : null);
+  const checkStats = run?.metadata?.check_stats || run?.metadata?.enable_stats || null;
+
+  return {
+    total: checkStats?.auto_disabled_total ?? checkSummary?.total ?? enableSummary?.total ?? run?.summary?.total ?? 0,
+    included: checkStats?.included_auto_disabled_total ?? checkSummary?.total ?? enableSummary?.total ?? run?.summary?.total ?? 0,
+    skippedPriority: checkStats?.skipped_priority_total ?? 0,
+    codex: checkSummary?.codex ?? enableSummary?.codex ?? run?.summary?.codex ?? 0,
+    nonCodex: checkSummary?.non_codex ?? enableSummary?.non_codex ?? run?.summary?.non_codex ?? 0,
+  };
+}
+
+function renderChannelStats(targetId, run) {
+  const target = byId(targetId);
+  if (!target) return;
+  if (!run) {
+    target.innerHTML = "";
+    return;
+  }
+
+  const stats = getChannelStats(run);
+  target.innerHTML = `
+    <article class="stat-chip">
+      <div class="stat-chip-label">自动禁用总数</div>
+      <div class="stat-chip-value">${stats.total}</div>
+    </article>
+    <article class="stat-chip">
+      <div class="stat-chip-label">实际参与任务</div>
+      <div class="stat-chip-value">${stats.included}</div>
+    </article>
+    <article class="stat-chip">
+      <div class="stat-chip-label">优先级过滤</div>
+      <div class="stat-chip-value">${stats.skippedPriority}</div>
+    </article>
+    <article class="stat-chip">
+      <div class="stat-chip-label">Codex 渠道</div>
+      <div class="stat-chip-value">${stats.codex}</div>
+    </article>
+    <article class="stat-chip">
+      <div class="stat-chip-label">非 Codex 渠道</div>
+      <div class="stat-chip-value">${stats.nonCodex}</div>
+    </article>
+  `;
+}
+
 function loadConfigForm(config) {
   const form = byId("configForm");
   Object.entries(config).forEach(([key, value]) => {
@@ -254,12 +301,12 @@ function renderRunSummaryInto(targetId, run) {
   }
   target.innerHTML = `
     <div class="summary-header">
-      <div>任务类型：${jobTypeLabel[run.job_type] || run.job_type}</div>
-      <div>执行状态：${statusLabel[run.status] || run.status}</div>
-      <div>触发方式：${triggerLabel[run.trigger] || run.trigger}</div>
-      <div>开始时间：${formatDateTime(run.started_at)}</div>
-      <div>结束时间：${formatDateTime(run.finished_at)}</div>
-      <div>耗时：${formatDuration(run.duration_seconds)}</div>
+      <article class="summary-meta"><div class="summary-meta-label">任务类型</div><div class="summary-meta-value">${jobTypeLabel[run.job_type] || run.job_type}</div></article>
+      <article class="summary-meta"><div class="summary-meta-label">执行状态</div><div class="summary-meta-value">${statusLabel[run.status] || run.status}</div></article>
+      <article class="summary-meta"><div class="summary-meta-label">触发方式</div><div class="summary-meta-value">${triggerLabel[run.trigger] || run.trigger}</div></article>
+      <article class="summary-meta"><div class="summary-meta-label">开始时间</div><div class="summary-meta-value">${formatDateTime(run.started_at)}</div></article>
+      <article class="summary-meta"><div class="summary-meta-label">结束时间</div><div class="summary-meta-value">${formatDateTime(run.finished_at)}</div></article>
+      <article class="summary-meta"><div class="summary-meta-label">耗时</div><div class="summary-meta-value">${formatDuration(run.duration_seconds)}</div></article>
     </div>
     <div class="summary-grid">
       ${buildCheckSummary(run)}
@@ -307,7 +354,8 @@ async function selectRun(runId) {
   state.selectedRun = run;
   renderRunSummaryInto("runSummary", run);
   renderRunSummaryInto("jobRunSummary", run);
-  renderOverviewHighlights(run);
+  renderChannelStats("overviewChannelStats", run);
+  renderChannelStats("jobChannelStats", run);
   await showRunLog(runId);
   switchTab("history");
 }
@@ -342,7 +390,8 @@ async function refreshAll() {
   state.selectedRun = current || null;
   renderRunSummaryInto("runSummary", current || null);
   renderRunSummaryInto("jobRunSummary", current || null);
-  renderOverviewHighlights(current || null);
+  renderChannelStats("overviewChannelStats", current || null);
+  renderChannelStats("jobChannelStats", current || null);
   if (current) {
     await showRunLog(current.run_id);
   } else {
@@ -354,6 +403,7 @@ async function triggerJob(jobType) {
   byId("jobStatus").textContent = `正在执行${jobTypeLabel[jobType] || jobType}...`;
   try {
     const result = await fetchJson(`/api/jobs/${jobType}`, { method: "POST" });
+    state.selectedRun = await fetchJson(`/api/runs/${result.run_id}`);
     byId("jobStatus").textContent = `任务执行完成：${result.run_id} / ${statusLabel[result.status] || result.status}`;
     await refreshAll();
     switchTab("jobs");

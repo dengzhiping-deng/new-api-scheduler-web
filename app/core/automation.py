@@ -158,20 +158,43 @@ class NewAPIClient:
         self.logger.info("login success: user_id=%s username=%s", self.user_id, self.config.new_api_username)
 
     def get_channels(self) -> list[dict[str, Any]]:
-        response = self._request(
-            "GET",
-            "/api/channel/",
-            params={"p": 0, "page_size": 1000, "id_sort": "false", "tag_mode": "false"},
-        )
-        data = response.json()
-        if not data.get("success"):
-            raise RuntimeError(f"list channels failed: {data.get('message', 'unknown error')}")
-        payload = data.get("data")
-        if isinstance(payload, dict):
-            return payload.get("items") or payload.get("list") or payload.get("data") or []
-        if isinstance(payload, list):
-            return payload
-        return []
+        all_channels: dict[int, dict[str, Any]] = {}
+        page = 1
+
+        while True:
+            response = self._request(
+                "GET",
+                "/api/channel/",
+                params={"p": page, "page_size": 1000, "id_sort": "false", "tag_mode": "false"},
+            )
+            data = response.json()
+            if not data.get("success"):
+                raise RuntimeError(f"list channels failed: {data.get('message', 'unknown error')}")
+
+            payload = data.get("data")
+            if isinstance(payload, dict):
+                items = payload.get("items") or payload.get("list") or payload.get("data") or []
+                total = int(payload.get("total") or 0)
+            elif isinstance(payload, list):
+                items = payload
+                total = len(items)
+            else:
+                items = []
+                total = 0
+
+            if not items:
+                break
+
+            for channel in items:
+                channel_id = int(channel.get("id", 0))
+                if channel_id:
+                    all_channels[channel_id] = channel
+
+            if len(all_channels) >= total:
+                break
+            page += 1
+
+        return list(all_channels.values())
 
     def get_channel_detail(self, channel_id: int) -> dict[str, Any]:
         response = self._request("GET", f"/api/channel/{channel_id}")

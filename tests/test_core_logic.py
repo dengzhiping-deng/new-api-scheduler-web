@@ -1,9 +1,10 @@
 import os
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
+from typing import Any
 
 from app.config_store import AuthStore, ConfigStore
-from app.core.automation import AutomationRunner, classify_codex_usage
+from app.core.automation import AutomationRunner, NewAPIClient, classify_codex_usage
 from app.models import AppConfig, ConfigUpdate, JobRun, JobSummary, JobType, RunStatus
 from app.services.job_runner import JobService
 from app.storage import RunStore
@@ -108,6 +109,42 @@ def test_build_channel_lists_keeps_priority_snapshots(tmp_path: Path):
     assert channel_lists["auto_disabled_channels"][1]["priority"] == -999
     assert [item["channel_id"] for item in channel_lists["included_channels"]] == [1]
     assert [item["channel_id"] for item in channel_lists["skipped_priority_channels"]] == [2]
+
+
+def test_get_channels_fetches_all_pages_and_deduplicates(tmp_path: Path, monkeypatch):
+    client = NewAPIClient(config=AppConfig(), logger=AutomationRunner(config=AppConfig(), log_path=tmp_path / "job.log").logger)
+
+    class FakeResponse:
+        def __init__(self, payload: dict[str, Any]):
+            self._payload = payload
+
+        def json(self) -> dict[str, Any]:
+            return self._payload
+
+    page_1_items = [{"id": idx, "status": 2} for idx in range(1, 101)]
+    page_2_items = [{"id": idx, "status": 3} for idx in range(101, 153)]
+    page_calls: list[int] = []
+
+    def fake_request(self, method: str, path: str, **kwargs: Any) -> FakeResponse:
+        assert method == "GET"
+        assert path == "/api/channel/"
+        page = kwargs["params"]["p"]
+        page_calls.append(page)
+        if page == 1:
+            return FakeResponse({"success": True, "data": {"items": page_1_items, "total": 152}})
+        if page == 2:
+            # Include one duplicate to verify we de-duplicate by channel id.
+            return FakeResponse({"success": True, "data": {"items": page_2_items + [page_2_items[0]], "total": 152}})
+        return FakeResponse({"success": True, "data": {"items": [], "total": 152}})
+
+    monkeypatch.setattr(NewAPIClient, "_request", fake_request)
+
+    channels = client.get_channels()
+
+    assert page_calls == [1, 2]
+    assert len(channels) == 152
+    assert [channel["id"] for channel in channels][:3] == [1, 2, 3]
+    assert channels[-1]["id"] == 152
 
 
 def test_auth_store_verifies_password(tmp_path: Path):

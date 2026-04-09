@@ -11,6 +11,10 @@
 - 参数可视化配置（敏感连接信息不在页面回显）
 - Docker 镜像构建与 ECS/Fargate 部署骨架
 
+## 迭代记录
+
+- 最近一次修复与页面调整见 [CHANGELOG.md](./CHANGELOG.md)
+
 ## 项目结构
 
 ```text
