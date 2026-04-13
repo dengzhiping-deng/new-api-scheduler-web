@@ -28,6 +28,7 @@ from .storage import RunStore
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 DATA_DIR = Path(os.getenv("APP_DATA_DIR", str(BASE_DIR / "data"))).resolve()
+STATIC_DIR = Path(__file__).resolve().parent / "static"
 DATA_DIR.mkdir(parents=True, exist_ok=True)
 
 config_store = ConfigStore(DATA_DIR / "config.json")
@@ -61,6 +62,15 @@ templates = Jinja2Templates(directory=str(Path(__file__).resolve().parent / "tem
 app.mount("/static", StaticFiles(directory=str(Path(__file__).resolve().parent / "static")), name="static")
 
 
+def get_static_version() -> str:
+    mtimes = []
+    for filename in ("styles.css", "app.js", "login.js"):
+        path = STATIC_DIR / filename
+        if path.exists():
+            mtimes.append(int(path.stat().st_mtime))
+    return str(max(mtimes)) if mtimes else "0"
+
+
 def require_auth(request: Request) -> None:
     if not request.session.get("authenticated"):
         raise HTTPException(status_code=401, detail="unauthorized")
@@ -70,7 +80,7 @@ def require_auth(request: Request) -> None:
 def login_page(request: Request) -> HTMLResponse:
     if request.session.get("authenticated"):
         return RedirectResponse(url="/", status_code=303)
-    return templates.TemplateResponse(request, "login.html", {})
+    return templates.TemplateResponse(request, "login.html", {"static_version": get_static_version()})
 
 
 @app.post("/auth/login", response_model=LoginResponse)
@@ -92,7 +102,7 @@ def logout(request: Request) -> RedirectResponse:
 def index(request: Request) -> HTMLResponse:
     if not request.session.get("authenticated"):
         return RedirectResponse(url="/login", status_code=303)
-    return templates.TemplateResponse(request, "index.html", {})
+    return templates.TemplateResponse(request, "index.html", {"static_version": get_static_version()})
 
 
 @app.get("/api/health", response_model=HealthResponse)
