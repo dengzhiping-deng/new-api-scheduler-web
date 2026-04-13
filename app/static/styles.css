@@ -21,7 +21,7 @@ body {
 }
 
 .shell {
-  max-width: 1200px;
+  max-width: 1440px;
   margin: 0 auto;
   padding: 32px 20px 56px;
 }
@@ -217,6 +217,7 @@ input {
 .run-list {
   display: grid;
   gap: 12px;
+  scrollbar-gutter: stable;
 }
 
 .summary-wrap {
@@ -337,10 +338,26 @@ input {
 }
 
 .run-item {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px 18px;
+  align-items: start;
+  min-height: 64px;
   border: 1px solid var(--border);
   border-radius: 16px;
   padding: 14px;
   background: rgba(255, 255, 255, 0.66);
+}
+
+.run-item > .actions {
+  grid-column: 2;
+  grid-row: 1 / span 4;
+  align-self: center;
+  justify-content: flex-end;
+}
+
+.run-item .muted {
+  min-width: 0;
 }
 
 .log-box {
@@ -412,5 +429,15 @@ input {
   .history-toolbar input,
   .ghost-button {
     width: 100%;
+  }
+
+  .run-item {
+    grid-template-columns: 1fr;
+  }
+
+  .run-item > .actions {
+    grid-column: 1;
+    grid-row: auto;
+    justify-content: flex-start;
   }
 }

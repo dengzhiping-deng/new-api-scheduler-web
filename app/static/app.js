@@ -384,7 +384,8 @@ function filterRuns(runs) {
 
 function renderRuns(runs) {
   const filtered = filterRuns(runs);
-  byId("runList").innerHTML = filtered.map((run) => `
+  const runList = byId("runList");
+  runList.innerHTML = filtered.map((run) => `
     <article class="run-item">
       <div>
         <strong>${jobTypeLabel[run.job_type] || run.job_type}</strong>
@@ -399,6 +400,31 @@ function renderRuns(runs) {
       </div>
     </article>
   `).join("") || `<div class="muted">当前筛选条件下没有运行记录。</div>`;
+  updateRunListViewport(filtered.length);
+}
+
+function updateRunListViewport(itemCount = 0) {
+  const runList = byId("runList");
+  if (!runList) return;
+
+  if (!itemCount) {
+    runList.style.maxHeight = "";
+    runList.style.minHeight = "";
+    runList.style.overflowY = "";
+    runList.style.paddingRight = "";
+    return;
+  }
+
+  const CARD_HEIGHT = 64;
+  const GAP = 12;
+  const minVisibleCount = Math.min(Math.max(itemCount, 1), 5);
+  const minVisibleHeight = CARD_HEIGHT * minVisibleCount + GAP * Math.max(minVisibleCount - 1, 0);
+  const maxVisibleHeight = CARD_HEIGHT * 10 + GAP * 9;
+
+  runList.style.minHeight = `${minVisibleHeight}px`;
+  runList.style.maxHeight = itemCount > 10 ? `${maxVisibleHeight}px` : "";
+  runList.style.overflowY = itemCount > 10 ? "auto" : "visible";
+  runList.style.paddingRight = itemCount > 10 ? "6px" : "";
 }
 
 async function selectRun(runId) {
@@ -559,6 +585,7 @@ byId("copyLogs").addEventListener("click", () => copyLogs().catch((error) => {
 }));
 bindFilters();
 bindRunListActions();
+window.addEventListener("resize", () => updateRunListViewport(filterRuns(state.runs).length));
 refreshAll().catch((error) => {
   byId("jobStatus").textContent = error.message;
 });
