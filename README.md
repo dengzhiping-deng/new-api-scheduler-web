@@ -15,6 +15,10 @@
 
 - 最近一次修复与页面调整见 [CHANGELOG.md](./CHANGELOG.md)
 
+## 发布说明
+
+- 服务器发布步骤见 [DEPLOY.md](./DEPLOY.md)
+
 ## 项目结构
 
 ```text

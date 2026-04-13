@@ -90,6 +90,58 @@ function htmlEscape(value) {
     .replaceAll(">", "&gt;");
 }
 
+function getDateKeyInShanghai(value = new Date()) {
+  const date = value instanceof Date ? value : new Date(value);
+  if (Number.isNaN(date.getTime())) return "";
+  const formatter = new Intl.DateTimeFormat("zh-CN", {
+    timeZone: "Asia/Shanghai",
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  });
+  const parts = formatter.formatToParts(date);
+  const year = parts.find((item) => item.type === "year")?.value;
+  const month = parts.find((item) => item.type === "month")?.value;
+  const day = parts.find((item) => item.type === "day")?.value;
+  return year && month && day ? `${year}-${month}-${day}` : "";
+}
+
+function getTodayRecoveredChannelIds(runs) {
+  const todayKey = getDateKeyInShanghai();
+  const recoveredIds = new Set();
+
+  runs.forEach((run) => {
+    if (getDateKeyInShanghai(run.started_at) !== todayKey) return;
+
+    (run.decisions || []).forEach((item) => {
+      if (item.action === "enable" && item.suggestion === "已恢复" && Number.isFinite(Number(item.channel_id))) {
+        recoveredIds.add(Number(item.channel_id));
+      }
+    });
+  });
+
+  return Array.from(recoveredIds).sort((a, b) => a - b);
+}
+
+function renderTodayRecovered(runs) {
+  const target = byId("todayRecoveredSummary");
+  if (!target) return;
+
+  const todayKey = getDateKeyInShanghai();
+  const recoveredIds = getTodayRecoveredChannelIds(runs);
+  const idText = recoveredIds.length ? recoveredIds.join(", ") : "无";
+
+  target.innerHTML = `
+    <article class="summary-card">
+      <h3>截至今日 23:59:59 的累计恢复</h3>
+      <div class="summary-line">统计日期：${todayKey || "暂无"}</div>
+      <div class="summary-line">恢复渠道总数：${recoveredIds.length}</div>
+      <div class="summary-line">恢复渠道 ID：</div>
+      <div class="id-list-box">${htmlEscape(idText)}</div>
+    </article>
+  `;
+}
+
 function switchTab(tabName) {
   document.querySelectorAll(".tab-button").forEach((button) => {
     button.classList.toggle("active", button.dataset.tab === tabName);
@@ -342,8 +394,8 @@ function renderRuns(runs) {
       <div class="muted">触发方式：${triggerLabel[run.trigger] || run.trigger}</div>
       <div class="muted">耗时：${formatDuration(run.duration_seconds)}</div>
       <div class="actions" style="margin-top: 10px;">
-        <button onclick="selectRun('${run.run_id}')">查看结果</button>
-        <button onclick="showRunLog('${run.run_id}')">查看日志</button>
+        <button type="button" data-run-action="result" data-run-id="${run.run_id}">查看结果</button>
+        <button type="button" data-run-action="log" data-run-id="${run.run_id}">查看日志</button>
       </div>
     </article>
   `).join("") || `<div class="muted">当前筛选条件下没有运行记录。</div>`;
@@ -354,18 +406,22 @@ async function selectRun(runId) {
   state.selectedRun = run;
   renderRunSummaryInto("runSummary", run);
   renderRunSummaryInto("jobRunSummary", run);
+  renderRunSummaryInto("historyRunSummary", run);
   renderChannelStats("overviewChannelStats", run);
   renderChannelStats("jobChannelStats", run);
-  await showRunLog(runId);
+  renderChannelStats("historyChannelStats", run);
   switchTab("history");
 }
 
-async function showRunLog(runId) {
+async function showRunLog(runId, { switchToLogs = true } = {}) {
   const payload = await fetchJson(`/api/logs?run_id=${encodeURIComponent(runId)}`);
   const viewer = byId("logViewer");
   viewer.textContent = payload.lines.join("\n");
   if (byId("autoScrollLogs").checked) {
     viewer.scrollTop = viewer.scrollHeight;
+  }
+  if (switchToLogs) {
+    switchTab("logs");
   }
 }
 
@@ -382,6 +438,7 @@ async function refreshAll() {
   ]);
   state.runs = runs;
   renderCards(health);
+  renderTodayRecovered(runs);
   loadConfigForm(config);
   renderRuns(runs);
   const current = state.selectedRun
@@ -390,10 +447,12 @@ async function refreshAll() {
   state.selectedRun = current || null;
   renderRunSummaryInto("runSummary", current || null);
   renderRunSummaryInto("jobRunSummary", current || null);
+  renderRunSummaryInto("historyRunSummary", current || null);
   renderChannelStats("overviewChannelStats", current || null);
   renderChannelStats("jobChannelStats", current || null);
+  renderChannelStats("historyChannelStats", current || null);
   if (current) {
-    await showRunLog(current.run_id);
+    await showRunLog(current.run_id, { switchToLogs: false });
   } else {
     byId("logViewer").textContent = "";
   }
@@ -459,6 +518,29 @@ function bindFilters() {
   });
 }
 
+function bindRunListActions() {
+  byId("runList").addEventListener("click", (event) => {
+    const button = event.target.closest("[data-run-action]");
+    if (!button) return;
+
+    const runId = button.dataset.runId;
+    if (!runId) return;
+
+    if (button.dataset.runAction === "result") {
+      selectRun(runId).catch((error) => {
+        byId("jobStatus").textContent = error.message;
+      });
+      return;
+    }
+
+    if (button.dataset.runAction === "log") {
+      showRunLog(runId).catch((error) => {
+        byId("jobStatus").textContent = error.message;
+      });
+    }
+  });
+}
+
 document.querySelectorAll(".tab-button").forEach((button) => {
   button.addEventListener("click", () => switchTab(button.dataset.tab));
 });
@@ -476,6 +558,7 @@ byId("copyLogs").addEventListener("click", () => copyLogs().catch((error) => {
   byId("jobStatus").textContent = error.message;
 }));
 bindFilters();
+bindRunListActions();
 refreshAll().catch((error) => {
   byId("jobStatus").textContent = error.message;
 });
